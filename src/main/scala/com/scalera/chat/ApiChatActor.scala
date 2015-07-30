@@ -1,21 +1,43 @@
 package com.scalera.chat
 
-import akka.actor.{ Actor, ActorLogging, Props, ActorRef }
+import akka.actor.{ ActorLogging, Props, ActorRef }
+import scala.reflect.runtime.universe._
+import spray.routing.HttpServiceActor
 
-import routes.{ ChatRoute, CustomExceptionHandler }
+import com.gettyimages.spray.swagger._
 
-class ApiChatActor(database: ActorRef) extends Actor with ChatRoute {
+import routes.{ ChatRoute, UsersRoute, CustomExceptionHandler }
+
+class ApiChatActor(database: ActorRef) extends HttpServiceActor
+  with ActorLogging
+  with ChatRoute {
 
   lazy val databaseActor = database
-
-  def actorRefFactory = context
 
   val apiRoute =
     handleExceptions(CustomExceptionHandler.exceptionHandler) {
       chatRoute
     }
 
-  def receive = runRoute(apiRoute)
+  val swaggerRoute =
+    get {
+      pathPrefix("swagger") {
+        pathEndOrSingleSlash {
+          getFromResource("swagger-ui/index.html")
+        }
+      } ~ getFromResourceDirectory("swagger-ui")
+    }
+
+  lazy val swaggerService = new SwaggerHttpService {
+    override def apiTypes = Seq(typeOf[UsersRoute])
+    override def apiVersion = "1.0"
+    override def baseUrl = "/"
+    override def docsPath = "api-docs"
+    override def actorRefFactory = context
+    override def apiInfo = None
+  }
+
+  def receive = runRoute(apiRoute ~ swaggerService.routes ~ swaggerRoute)
 }
 
 object ApiChatActor {

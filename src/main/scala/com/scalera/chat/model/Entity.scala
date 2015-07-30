@@ -9,7 +9,8 @@ object EntityUtils {
   val IdSize = 30
 
   val idGenerator = new Random()
-  def generateRandomId = idGenerator.nextString(IdSize)
+  def generateRandomId =
+    idGenerator.alphanumeric.take(IdSize).mkString
 
   trait Entity {
     val id: Id
